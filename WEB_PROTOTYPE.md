@@ -6,7 +6,7 @@ The native iOS SwiftUI/SpriteKit Phase 1 remains in the repo, but active iterati
 
 ## Current Track
 
-Current phase: Web-1 - Playable Feel Prototype
+Current phase: Web-2 - Vertical Slice Prototype
 
 Goals:
 
@@ -16,6 +16,10 @@ Goals:
 - Persist state locally with `localStorage`.
 - Show a memory panel and quiet prompt overlay.
 - Provide enough interaction to judge tone, pacing, and visual direction.
+- Unlock and move between multiple rooms.
+- Make each room alter the screenshot mood and the shadow's silhouette context.
+- Add room-specific notes that feel like clues, not tutorials.
+- Keep the prototype strong enough to judge whether this should become a Godot product.
 
 ## Product Direction
 
@@ -70,6 +74,15 @@ Non-goals:
 - Native notifications, haptics, or platform audio.
 - Complete balance.
 - Final art.
+
+## Web-2 Acceptance
+
+- Main room, hallway, child room, and empty room can be reached through progression.
+- Room changes are visible without reading text.
+- The same shadow feels different in each room.
+- Furniture and room context both influence the shadow's shape.
+- A 15-day simulated run shows meaningful visual escalation.
+- The browser console has no errors.
 
 ## How To Run
 

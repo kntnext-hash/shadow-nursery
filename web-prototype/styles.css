@@ -79,9 +79,17 @@ input {
 .status-strip {
   top: 58px;
   left: 18px;
+  right: 18px;
   display: flex;
   gap: 18px;
   opacity: 0.84;
+}
+
+#roomNote {
+  margin-left: auto;
+  max-width: min(420px, 42vw);
+  text-align: right;
+  color: rgba(243, 234, 220, 0.68);
 }
 
 .control-band {
@@ -293,5 +301,11 @@ input[type="range"] {
   .status-strip {
     right: 18px;
     flex-wrap: wrap;
+  }
+
+  #roomNote {
+    margin-left: 0;
+    max-width: 100%;
+    text-align: left;
   }
 }

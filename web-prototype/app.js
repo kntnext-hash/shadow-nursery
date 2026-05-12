@@ -94,6 +94,7 @@ const prompts = [
 const canvas = document.getElementById("roomCanvas");
 const ctx = canvas.getContext("2d");
 const root = document.querySelector(".shell");
+const roomButton = document.getElementById("roomButton");
 const angleSlider = document.getElementById("angleSlider");
 const intensitySlider = document.getElementById("intensitySlider");
 const observeButton = document.getElementById("observeButton");
@@ -112,6 +113,7 @@ const dayText = document.getElementById("dayText");
 const stageText = document.getElementById("stageText");
 const sizeText = document.getElementById("sizeText");
 const moodText = document.getElementById("moodText");
+const roomNote = document.getElementById("roomNote");
 
 const positions = ["nearCorner", "center", "againstWall", "removed"];
 const furnitureCatalog = {
@@ -150,6 +152,44 @@ const evolutionForms = [
   { name: "a room-shaped dark", lift: 0.76, tendrils: 5, split: 0.72, wall: 0.8, grain: 0.72 },
   { name: "an unsteady absence", lift: 0.9, tendrils: 6, split: 0.9, wall: 0.95, grain: 0.88 }
 ];
+const roomCatalog = {
+  mainRoom: {
+    label: "main room",
+    note: "The first corner keeps its shape.",
+    ambient: "warm stone",
+    wall: ["#bcc2b8", "#9da8a2", "#7e837a"],
+    floor: ["#7a7467", "#4f4b43"],
+    light: ["255,250,230", "232,228,210", "184,196,188"],
+    shadowBias: { x: 0, y: 0, stretch: 0, wall: 0 }
+  },
+  hallway: {
+    label: "hallway",
+    note: "The hall gives the shadow distance.",
+    ambient: "cold length",
+    wall: ["#c6c9bf", "#a7afa9", "#747c78"],
+    floor: ["#8a867a", "#52534d"],
+    light: ["245,247,232", "204,215,209", "150,166,166"],
+    shadowBias: { x: -60, y: 0, stretch: 0.8, wall: 0.12 }
+  },
+  childRoom: {
+    label: "child room",
+    note: "Small things make the floor look larger.",
+    ambient: "pale dust",
+    wall: ["#d3d0c5", "#b8b6aa", "#8c8a7f"],
+    floor: ["#928879", "#5e544b"],
+    light: ["255,244,219", "225,210,192", "176,164,154"],
+    shadowBias: { x: 36, y: -3, stretch: 0.25, wall: 0.22 }
+  },
+  emptyRoom: {
+    label: "empty room",
+    note: "Nothing else is here.",
+    ambient: "white quiet",
+    wall: ["#dadbd2", "#c7cbc3", "#9ea49d"],
+    floor: ["#9a988e", "#66665f"],
+    light: ["255,255,242", "235,236,226", "196,202,196"],
+    shadowBias: { x: 8, y: 4, stretch: 1.25, wall: 0.5 }
+  }
+};
 let state = loadState();
 let activePrompt = null;
 let lastFrame = performance.now();
@@ -165,6 +205,8 @@ function defaultState() {
       lightAngle: 50,
       lightIntensity: 45
     },
+    currentRoomID: "mainRoom",
+    rooms: defaultRooms(),
     shadow: {
       size: 12,
       distortion: 0,
@@ -212,9 +254,20 @@ function defaultFurniture() {
   );
 }
 
+function defaultRooms() {
+  return {
+    mainRoom: { unlocked: true, visited: true },
+    hallway: { unlocked: false, visited: false },
+    childRoom: { unlocked: false, visited: false },
+    emptyRoom: { unlocked: false, visited: false }
+  };
+}
+
 function ensureStateShape(next) {
   const defaults = defaultState();
   next.room = { ...defaults.room, ...next.room };
+  next.currentRoomID = next.currentRoomID || "mainRoom";
+  next.rooms = { ...defaults.rooms, ...next.rooms };
   next.shadow = { ...defaults.shadow, ...next.shadow };
   next.flags = { ...defaults.flags, ...next.flags };
   next.furniture = { ...defaults.furniture, ...next.furniture };
@@ -226,6 +279,7 @@ function ensureStateShape(next) {
   }
   next.unlockedMemories = next.unlockedMemories || {};
   next.shownPrompts = next.shownPrompts || {};
+  updateRoomUnlocks(next);
   return next;
 }
 
@@ -264,6 +318,39 @@ function unlockedCount(s = state) {
   return Object.keys(s.unlockedMemories).length;
 }
 
+function currentRoom() {
+  return roomCatalog[state.currentRoomID] || roomCatalog.mainRoom;
+}
+
+function unlockedRoomIDs(s = state) {
+  return Object.keys(roomCatalog).filter(id => s.rooms[id]?.unlocked);
+}
+
+function updateRoomUnlocks(s = state) {
+  if (!s.rooms) s.rooms = defaultRooms();
+  if (stageRank(s.shadow?.stage || "dormant") >= stageRank("aware") || unlockedCount(s) >= 3 || elapsedDays(s) >= 2) {
+    s.rooms.hallway.unlocked = true;
+  }
+  if (stageRank(s.shadow?.stage || "dormant") >= stageRank("present") || s.shadow?.unease > 25 || elapsedDays(s) >= 5) {
+    s.rooms.childRoom.unlocked = true;
+    s.flags.childRoomUnlocked = true;
+  }
+  if (stageRank(s.shadow?.stage || "dormant") >= stageRank("familiar") || elapsedDays(s) >= 12 || unlockedCount(s) >= 8) {
+    s.rooms.emptyRoom.unlocked = true;
+  }
+  if (!s.rooms[s.currentRoomID]?.unlocked) s.currentRoomID = "mainRoom";
+}
+
+function visitRoom(id) {
+  state.currentRoomID = id;
+  state.rooms[id].visited = true;
+  state.flags.hallwayVisited = state.rooms.hallway.visited;
+  state.flags.emptyRoomVisited = state.rooms.emptyRoom.visited;
+  if (id === "emptyRoom") state.shadow.unease = clamp(state.shadow.unease + 1.5);
+  if (id === "childRoom") state.shadow.familiarity = clamp(state.shadow.familiarity + 0.8);
+  applyInteractionGrowth(0.35);
+}
+
 function updateStage() {
   const days = elapsedDays();
   let stage = "dormant";
@@ -273,6 +360,7 @@ function updateStage() {
   if (days >= 15 && state.shadow.familiarity > 70 && state.shadow.unease > 50) stage = "watching";
   if (state.shadow.distortion > 90 && state.shadow.unease > 85) stage = "unknown";
   state.shadow.stage = stage;
+  updateRoomUnlocks();
 }
 
 function evolutionIndex(s = state) {
@@ -431,7 +519,11 @@ function labelForFurniture(key) {
 
 function updateHud() {
   const form = currentEvolutionForm();
+  const room = currentRoom();
   root.dataset.stage = state.shadow.stage;
+  roomButton.textContent = room.label;
+  roomButton.title = room.note;
+  roomNote.textContent = room.note;
   dayText.textContent = `day ${Math.floor(elapsedDays())}`;
   stageText.textContent = state.shadow.stage === "unknown" ? "" : state.shadow.stage;
   sizeText.textContent = form.name;
@@ -475,6 +567,7 @@ function draw(now) {
   ctx.clearRect(0, 0, w, h);
 
   drawRoom(w, h, floorY);
+  drawRoomDetails(w, h, floorY, now);
   drawLight(w, h, floorY, now);
   drawFurniture(w, h, floorY);
   drawShadow(w, h, floorY, now);
@@ -484,16 +577,17 @@ function draw(now) {
 }
 
 function drawRoom(w, h, floorY) {
+  const room = currentRoom();
   const wall = ctx.createLinearGradient(0, 0, 0, floorY);
-  wall.addColorStop(0, "#b8beb5");
-  wall.addColorStop(0.55, "#9da8a2");
-  wall.addColorStop(1, "#7e837a");
+  wall.addColorStop(0, room.wall[0]);
+  wall.addColorStop(0.55, room.wall[1]);
+  wall.addColorStop(1, room.wall[2]);
   ctx.fillStyle = wall;
   ctx.fillRect(0, 0, w, floorY);
 
   const floor = ctx.createLinearGradient(0, floorY, 0, h);
-  floor.addColorStop(0, "#7a7467");
-  floor.addColorStop(1, "#4f4b43");
+  floor.addColorStop(0, room.floor[0]);
+  floor.addColorStop(1, room.floor[1]);
   ctx.fillStyle = floor;
   ctx.fillRect(0, floorY, w, h - floorY);
 
@@ -513,15 +607,62 @@ function drawRoom(w, h, floorY) {
   }
 }
 
+function drawRoomDetails(w, h, floorY, now) {
+  const id = state.currentRoomID;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.strokeStyle = "rgba(255,250,236,0.18)";
+  ctx.fillStyle = "rgba(255,250,236,0.08)";
+
+  if (id === "hallway") {
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i += 1) {
+      const x = w * (0.18 + i * 0.2);
+      ctx.strokeRect(x, floorY - 132 + i * 5, 42, 132 - i * 8);
+    }
+    ctx.strokeStyle = "rgba(40,36,32,0.18)";
+    ctx.beginPath();
+    ctx.moveTo(w * 0.1, floorY);
+    ctx.lineTo(w * 0.34, h);
+    ctx.moveTo(w * 0.9, floorY);
+    ctx.lineTo(w * 0.66, h);
+    ctx.stroke();
+  }
+
+  if (id === "childRoom") {
+    px(w * 0.13, floorY - 46, 64, 34, "rgba(255,250,236,0.12)");
+    px(w * 0.18, floorY - 70, 18, 24, "rgba(255,250,236,0.16)");
+    px(w * 0.7, floorY - 28, 38, 18, "rgba(255,250,236,0.11)");
+    px(w * 0.75, floorY - 44, 14, 16, "rgba(255,250,236,0.13)");
+    ctx.strokeStyle = "rgba(255,250,236,0.16)";
+    ctx.beginPath();
+    ctx.arc(w * 0.54, floorY - 70 + Math.sin(now / 900) * 2, 10, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  if (id === "emptyRoom") {
+    ctx.strokeStyle = "rgba(255,255,244,0.12)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(w * 0.08, floorY - 190, w * 0.84, 188);
+    ctx.fillStyle = "rgba(255,255,244,0.045)";
+    ctx.fillRect(w * 0.08, floorY - 190, w * 0.84, 188);
+    ctx.fillStyle = "rgba(0,0,0,0.08)";
+    ctx.fillRect(w * 0.47, floorY - 1, w * 0.06, h - floorY);
+  }
+
+  ctx.restore();
+}
+
 function drawLight(w, h, floorY, now) {
+  const room = currentRoom();
   const angle = state.room.lightAngle / 100;
   const intensity = state.room.lightIntensity / 100;
   const sourceX = w * (0.12 + angle * 0.76);
   const sourceY = floorY * 0.18;
   const glow = ctx.createRadialGradient(sourceX, sourceY, 0, sourceX, sourceY, w * 0.9);
-  glow.addColorStop(0, `rgba(255,250,230,${0.42 * intensity})`);
-  glow.addColorStop(0.38, `rgba(232,228,210,${0.18 * intensity})`);
-  glow.addColorStop(0.7, `rgba(184,196,188,${0.08 * intensity})`);
+  glow.addColorStop(0, `rgba(${room.light[0]},${0.42 * intensity})`);
+  glow.addColorStop(0.38, `rgba(${room.light[1]},${0.18 * intensity})`);
+  glow.addColorStop(0.7, `rgba(${room.light[2]},${0.08 * intensity})`);
   glow.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, w, h);
@@ -533,6 +674,7 @@ function drawLight(w, h, floorY, now) {
 }
 
 function drawFurniture(w, h, floorY) {
+  if (state.currentRoomID === "emptyRoom") return;
   for (const key of Object.keys(furnitureCatalog)) {
     drawFurnitureItem(key, w, h, floorY);
   }
@@ -688,15 +830,16 @@ function drawPixelPicture(x, y) {
 
 function drawShadow(w, h, floorY, now) {
   const angle = state.room.lightAngle;
-  let baseX = w * 0.22 + (50 - angle) * 2.6;
-  const baseY = floorY + 22;
+  const roomBias = currentRoom().shadowBias;
+  let baseX = w * 0.22 + (50 - angle) * 2.6 + roomBias.x;
+  const baseY = floorY + 22 + roomBias.y;
   const form = currentEvolutionForm();
   const influence = shadowFurnitureInfluence(w, h, floorY, baseX);
   baseX += influence.pullX;
   const distortion = Math.min(1.4, state.shadow.distortion / 100 + influence.distortion + form.grain * 0.35);
   const unease = state.shadow.unease / 100;
   const size = 34 + state.shadow.size * 1.4 + evolutionIndex() * 2.2;
-  const stretch = 1.2 + Math.abs(angle - 50) / 22 + influence.stretch + form.split * 0.28;
+  const stretch = 1.2 + Math.abs(angle - 50) / 22 + influence.stretch + form.split * 0.28 + roomBias.stretch;
   const breathe = 1 + Math.sin(now / 1600) * 0.02;
   const points = 28;
 
@@ -724,7 +867,7 @@ function drawShadow(w, h, floorY, now) {
   ctx.fill();
 
   drawFurnitureTethers(influence.anchors, baseX, baseY, size, now);
-  drawEvolutionMarks(form, baseX, baseY, size, floorY, now);
+  drawEvolutionMarks(form, baseX, baseY, size, floorY, now, roomBias.wall);
 
   if (stageRank(state.shadow.stage) >= stageRank("familiar")) {
     ctx.strokeStyle = "rgba(0,0,0,0.58)";
@@ -737,17 +880,18 @@ function drawShadow(w, h, floorY, now) {
   ctx.restore();
 }
 
-function drawEvolutionMarks(form, baseX, baseY, size, floorY, now) {
+function drawEvolutionMarks(form, baseX, baseY, size, floorY, now, roomWallBias = 0) {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  if (form.wall > 0.02) {
-    const height = size * (0.7 + form.wall * 1.6);
-    const width = size * (0.45 + form.wall * 0.42);
+  const wallPresence = Math.min(1.2, form.wall + roomWallBias);
+  if (wallPresence > 0.02) {
+    const height = size * (0.7 + wallPresence * 1.6);
+    const width = size * (0.45 + wallPresence * 0.42);
     const x = baseX - width * 0.25 + Math.sin(now / 1500) * form.wall * 4;
     const y = floorY - height * 0.78;
     const gradient = ctx.createLinearGradient(x, y, x, floorY + 20);
-    gradient.addColorStop(0, `rgba(0,0,0,${0.02 + form.wall * 0.18})`);
-    gradient.addColorStop(1, `rgba(0,0,0,${0.08 + form.wall * 0.22})`);
+    gradient.addColorStop(0, `rgba(0,0,0,${0.02 + wallPresence * 0.18})`);
+    gradient.addColorStop(1, `rgba(0,0,0,${0.08 + wallPresence * 0.22})`);
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.moveTo(x, floorY + 12);
@@ -864,8 +1008,19 @@ laterButton.addEventListener("click", () => {
   state.shadow.unease = clamp(state.shadow.unease + 2);
   if (elapsedDays() > 3) state.shadow.familiarity = clamp(state.shadow.familiarity + 3);
   applyInteractionGrowth(2);
+  updateRoomUnlocks();
   maybePrompt();
   renderPanels();
+});
+
+roomButton.addEventListener("click", () => {
+  updateRoomUnlocks();
+  const rooms = unlockedRoomIDs();
+  const index = rooms.indexOf(state.currentRoomID);
+  const nextRoom = rooms[(index + 1) % rooms.length] || "mainRoom";
+  visitRoom(nextRoom);
+  renderPanels();
+  updateHud();
 });
 
 furnitureButton.addEventListener("click", () => togglePanel(furniturePanel));
