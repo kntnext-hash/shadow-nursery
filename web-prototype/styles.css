@@ -1,14 +1,14 @@
 :root {
   color-scheme: dark;
-  --ink: #eee7dc;
-  --muted: #b8aca0;
-  --line: rgba(238, 231, 220, 0.18);
-  --panel: rgba(19, 18, 17, 0.86);
-  --panel-strong: rgba(10, 10, 10, 0.92);
-  --button: rgba(238, 231, 220, 0.11);
-  --button-hover: rgba(238, 231, 220, 0.18);
-  --floor: #27211d;
-  --wall: #3a3029;
+  --ink: #f3eadc;
+  --muted: #d4c8b8;
+  --line: rgba(243, 234, 220, 0.22);
+  --panel: rgba(21, 23, 22, 0.83);
+  --panel-strong: rgba(12, 14, 13, 0.92);
+  --button: rgba(243, 234, 220, 0.13);
+  --button-hover: rgba(243, 234, 220, 0.22);
+  --floor: #6e6a60;
+  --wall: #a4aaa2;
   --shadow: rgba(0, 0, 0, 0.78);
   font-family: ui-serif, Georgia, "Times New Roman", serif;
 }
@@ -23,7 +23,7 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: #0d0d0c;
+  background: #151716;
   color: var(--ink);
 }
 
@@ -295,4 +295,3 @@ input[type="range"] {
     flex-wrap: wrap;
   }
 }
-

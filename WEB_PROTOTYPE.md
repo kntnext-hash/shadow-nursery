@@ -17,6 +17,52 @@ Goals:
 - Show a memory panel and quiet prompt overlay.
 - Provide enough interaction to judge tone, pacing, and visual direction.
 
+## Product Direction
+
+This is not a mass-market idle game tuned around missions, ads, stamina, gachas, or daily chores.
+
+The value is atmosphere:
+
+- The room.
+- The silence.
+- The act of observing.
+- Memory fragments.
+- Unease without explanation.
+
+The closest commercial shape is an art-leaning, interpretation-friendly indie game. The prototype should make screenshots feel like something players want to inspect, share, and discuss.
+
+Design priorities:
+
+- Make the room visually readable in a single screenshot.
+- Make the shadow feel like a phenomenon, not a character.
+- Make furniture placement visibly change the shadow.
+- Let the shadow evolve through roughly 20 visible form steps: pool, stain, lifted edge, wall mark, tendril-like smears, and finally an unstable absence. Do not label them as levels in the UI.
+- Preserve ambiguity.
+- Avoid reward language.
+- Avoid turning the loop into chores.
+- Learn from ICO-like restraint: pale light, desaturated stone, large quiet negative space, weak UI presence, and loneliness without explanation.
+- Avoid making the palette read as generic blue horror. Use overexposed light and soft washed surfaces against the shadow.
+- Treat each prop as a clue in the screenshot, not decoration.
+
+Future revenue fit:
+
+- Premium purchase first.
+- DLC room packs later.
+- Memory/audio/photo fragment packs only if they deepen the world.
+- Steam and Switch should be considered alongside mobile.
+
+## References Learned
+
+ICO and related Fumito Ueda work are useful references because they rely on subtraction, silence, scale, minimal UI, sparse story, and desaturated/overexposed light rather than explicit horror. The prototype should borrow those principles, not the literal castle setting.
+
+Nearby market references:
+
+- ICO / Shadow of the Colossus / The Last Guardian: subtraction, pale light, scale, isolation.
+- INSIDE / Little Nightmares: readable silhouettes and instantly shareable screenshots.
+- Rusty Lake: object-as-clue structure and interpretation loops.
+- Milk inside a bag of milk inside a bag of milk: small audience, strong tone, memorable text.
+- Kind Words: intimacy and quiet ritual, but without turning the shadow into a social companion.
+
 Non-goals:
 
 - Mobile app packaging.
@@ -56,4 +102,3 @@ The prototype should produce decisions about:
 - Whether Godot is the right production target.
 
 After Web-1 is approved, port the validated model and logic to Godot as data/resources/scripts.
-

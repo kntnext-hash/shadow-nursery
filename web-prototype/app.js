@@ -114,6 +114,42 @@ const sizeText = document.getElementById("sizeText");
 const moodText = document.getElementById("moodText");
 
 const positions = ["nearCorner", "center", "againstWall", "removed"];
+const furnitureCatalog = {
+  chair: { present: true, position: "againstWall", width: 38, height: 58, nudge: 0, pull: 0.95 },
+  table: { present: true, position: "center", width: 86, height: 38, nudge: -38, pull: 0.65 },
+  lamp: { present: true, position: "againstWall", width: 28, height: 98, nudge: 52, pull: 0.78 },
+  bookshelf: { present: false, position: "removed", width: 68, height: 128, nudge: -74, pull: 0.85 },
+  curtain: { present: false, position: "removed", width: 48, height: 162, nudge: 92, pull: 0.45 },
+  mirrorFragment: { present: false, position: "removed", width: 32, height: 56, nudge: 22, pull: 1.15 },
+  cabinet: { present: false, position: "removed", width: 58, height: 86, nudge: -14, pull: 0.7 },
+  floorBox: { present: true, position: "nearCorner", width: 54, height: 34, nudge: 74, pull: 0.55 },
+  wallClock: { present: true, position: "againstWall", width: 34, height: 34, nudge: -108, pull: 0.35 },
+  narrowBed: { present: false, position: "removed", width: 118, height: 42, nudge: -112, pull: 0.9 },
+  radio: { present: false, position: "removed", width: 42, height: 28, nudge: 116, pull: 0.8 },
+  pictureFrame: { present: true, position: "center", width: 46, height: 38, nudge: 28, pull: 0.42 }
+};
+const evolutionForms = [
+  { name: "a small pool", lift: 0, tendrils: 0, split: 0, wall: 0, grain: 0 },
+  { name: "a soft edge", lift: 0.02, tendrils: 0, split: 0, wall: 0, grain: 0.02 },
+  { name: "a longer stain", lift: 0.04, tendrils: 0, split: 0, wall: 0, grain: 0.04 },
+  { name: "a leaning shape", lift: 0.06, tendrils: 0, split: 0.02, wall: 0, grain: 0.05 },
+  { name: "an uneven pool", lift: 0.08, tendrils: 0, split: 0.04, wall: 0.02, grain: 0.08 },
+  { name: "a folded edge", lift: 0.1, tendrils: 1, split: 0.06, wall: 0.03, grain: 0.1 },
+  { name: "a reaching stain", lift: 0.12, tendrils: 1, split: 0.08, wall: 0.05, grain: 0.12 },
+  { name: "a second edge", lift: 0.14, tendrils: 1, split: 0.16, wall: 0.07, grain: 0.15 },
+  { name: "a slow spill", lift: 0.16, tendrils: 2, split: 0.18, wall: 0.09, grain: 0.17 },
+  { name: "a lifted corner", lift: 0.2, tendrils: 2, split: 0.22, wall: 0.12, grain: 0.2 },
+  { name: "a thin extension", lift: 0.24, tendrils: 2, split: 0.26, wall: 0.16, grain: 0.24 },
+  { name: "a torn outline", lift: 0.28, tendrils: 3, split: 0.3, wall: 0.2, grain: 0.28 },
+  { name: "a divided stain", lift: 0.32, tendrils: 3, split: 0.38, wall: 0.24, grain: 0.32 },
+  { name: "a higher edge", lift: 0.38, tendrils: 3, split: 0.42, wall: 0.3, grain: 0.36 },
+  { name: "a wall mark", lift: 0.44, tendrils: 4, split: 0.46, wall: 0.38, grain: 0.42 },
+  { name: "a watching edge", lift: 0.5, tendrils: 4, split: 0.52, wall: 0.48, grain: 0.48 },
+  { name: "a ceiling smear", lift: 0.58, tendrils: 4, split: 0.58, wall: 0.58, grain: 0.54 },
+  { name: "a woven shadow", lift: 0.66, tendrils: 5, split: 0.64, wall: 0.68, grain: 0.62 },
+  { name: "a room-shaped dark", lift: 0.76, tendrils: 5, split: 0.72, wall: 0.8, grain: 0.72 },
+  { name: "an unsteady absence", lift: 0.9, tendrils: 6, split: 0.9, wall: 0.95, grain: 0.88 }
+];
 let state = loadState();
 let activePrompt = null;
 let lastFrame = performance.now();
@@ -140,14 +176,7 @@ function defaultState() {
       totalObservations: 0,
       totalMinutesObserved: 0
     },
-    furniture: {
-      chair: { present: true, position: "againstWall" },
-      table: { present: true, position: "center" },
-      lamp: { present: true, position: "againstWall" },
-      bookshelf: { present: false, position: "removed" },
-      curtain: { present: false, position: "removed" },
-      mirrorFragment: { present: false, position: "removed" }
-    },
+    furniture: defaultFurniture(),
     unlockedMemories: {},
     shownPrompts: {},
     flags: {
@@ -164,7 +193,7 @@ function defaultState() {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    const next = raw ? JSON.parse(raw) : defaultState();
+    const next = ensureStateShape(raw ? JSON.parse(raw) : defaultState());
     next.sessionCount += 1;
     next.previousOpenedAt = next.lastOpenedAt || Date.now();
     next.lastOpenedAt = Date.now();
@@ -172,6 +201,32 @@ function loadState() {
   } catch {
     return defaultState();
   }
+}
+
+function defaultFurniture() {
+  return Object.fromEntries(
+    Object.entries(furnitureCatalog).map(([key, spec]) => [
+      key,
+      { present: spec.present, position: spec.position }
+    ])
+  );
+}
+
+function ensureStateShape(next) {
+  const defaults = defaultState();
+  next.room = { ...defaults.room, ...next.room };
+  next.shadow = { ...defaults.shadow, ...next.shadow };
+  next.flags = { ...defaults.flags, ...next.flags };
+  next.furniture = { ...defaults.furniture, ...next.furniture };
+  if (!next.flags.furnitureExpanded) {
+    next.furniture.floorBox = { present: true, position: "nearCorner" };
+    next.furniture.wallClock = { present: true, position: "againstWall" };
+    next.furniture.pictureFrame = { present: true, position: "center" };
+    next.flags.furnitureExpanded = true;
+  }
+  next.unlockedMemories = next.unlockedMemories || {};
+  next.shownPrompts = next.shownPrompts || {};
+  return next;
 }
 
 function saveState() {
@@ -220,6 +275,22 @@ function updateStage() {
   state.shadow.stage = stage;
 }
 
+function evolutionIndex(s = state) {
+  const days = Math.min(20, elapsedDays(s));
+  const pressure =
+    days * 3.2 +
+    s.shadow.size * 0.16 +
+    s.shadow.familiarity * 0.2 +
+    s.shadow.unease * 0.18 +
+    s.shadow.distortion * 0.22 +
+    unlockedCount(s) * 1.15;
+  return Math.max(0, Math.min(evolutionForms.length - 1, Math.floor(pressure / 5.6)));
+}
+
+function currentEvolutionForm() {
+  return evolutionForms[evolutionIndex()];
+}
+
 function applyInteractionGrowth(minutes = 0.25) {
   const angle = state.room.lightAngle;
   const intensity = state.room.lightIntensity;
@@ -240,6 +311,12 @@ function applyInteractionGrowth(minutes = 0.25) {
   }
   if (f.curtain.present && f.curtain.position === "removed") state.shadow.distortion += 0.2;
   if (f.mirrorFragment.present) state.shadow.unease += 0.3;
+  if (f.cabinet.present && f.cabinet.position === "nearCorner") state.shadow.familiarity += 0.12 * minutes;
+  if (f.floorBox.present && f.floorBox.position === "nearCorner") state.shadow.size += 0.12 * minutes;
+  if (f.wallClock.present) state.shadow.unease += 0.08 * minutes;
+  if (f.narrowBed.present && f.narrowBed.position !== "removed") state.shadow.calmness += 0.06 * minutes;
+  if (f.radio.present && intensity < 25) state.shadow.distortion += 0.1 * minutes;
+  if (f.pictureFrame.present && f.pictureFrame.position === "againstWall") state.shadow.familiarity += 0.08 * minutes;
   if (state.shadow.familiarity > 70) state.shadow.unease += 0.05;
   if (state.shadow.calmness > 80) state.shadow.size += 0.05;
 
@@ -300,8 +377,8 @@ function maybePrompt() {
 
 function renderPanels() {
   furnitureList.innerHTML = "";
-  for (const [key, item] of Object.entries(state.furniture)) {
-    if (!item.present && !["bookshelf", "curtain", "mirrorFragment"].includes(key)) continue;
+  for (const key of Object.keys(furnitureCatalog)) {
+    const item = state.furniture[key];
     const row = document.createElement("div");
     row.className = "furniture-row";
     const title = document.createElement("strong");
@@ -309,7 +386,7 @@ function renderPanels() {
     const actions = document.createElement("div");
     actions.className = "furniture-actions";
     const position = document.createElement("span");
-    position.textContent = item.present ? item.position : "locked";
+    position.textContent = item.present ? item.position : "absent";
     const button = document.createElement("button");
     button.type = "button";
     button.className = "position-button";
@@ -317,7 +394,7 @@ function renderPanels() {
     button.addEventListener("click", () => {
       if (!item.present) {
         item.present = true;
-        item.position = "againstWall";
+        item.position = "nearCorner";
       } else {
         const index = positions.indexOf(item.position);
         item.position = positions[(index + 1) % positions.length];
@@ -353,10 +430,11 @@ function labelForFurniture(key) {
 }
 
 function updateHud() {
+  const form = currentEvolutionForm();
   root.dataset.stage = state.shadow.stage;
   dayText.textContent = `day ${Math.floor(elapsedDays())}`;
   stageText.textContent = state.shadow.stage === "unknown" ? "" : state.shadow.stage;
-  sizeText.textContent = labelByValue(state.shadow.size, ["barely there", "small", "spreading", "large", "filling the corner"]);
+  sizeText.textContent = form.name;
   moodText.textContent = labelByValue(state.shadow.unease, ["still", "uncertain", "wrong", "watching", "it knows"]);
   angleSlider.value = String(state.room.lightAngle);
   intensitySlider.value = String(state.room.lightIntensity);
@@ -406,19 +484,27 @@ function draw(now) {
 }
 
 function drawRoom(w, h, floorY) {
-  ctx.fillStyle = "#3a3029";
+  const wall = ctx.createLinearGradient(0, 0, 0, floorY);
+  wall.addColorStop(0, "#b8beb5");
+  wall.addColorStop(0.55, "#9da8a2");
+  wall.addColorStop(1, "#7e837a");
+  ctx.fillStyle = wall;
   ctx.fillRect(0, 0, w, floorY);
-  ctx.fillStyle = "#27211d";
+
+  const floor = ctx.createLinearGradient(0, floorY, 0, h);
+  floor.addColorStop(0, "#7a7467");
+  floor.addColorStop(1, "#4f4b43");
+  ctx.fillStyle = floor;
   ctx.fillRect(0, floorY, w, h - floorY);
 
-  ctx.strokeStyle = "rgba(11,10,9,0.58)";
+  ctx.strokeStyle = "rgba(42,38,32,0.42)";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(0, floorY);
   ctx.lineTo(w, floorY);
   ctx.stroke();
 
-  ctx.strokeStyle = "rgba(238,231,220,0.035)";
+  ctx.strokeStyle = "rgba(255,250,236,0.075)";
   for (let x = -w; x < w * 2; x += 46) {
     ctx.beginPath();
     ctx.moveTo(x, h);
@@ -433,50 +519,56 @@ function drawLight(w, h, floorY, now) {
   const sourceX = w * (0.12 + angle * 0.76);
   const sourceY = floorY * 0.18;
   const glow = ctx.createRadialGradient(sourceX, sourceY, 0, sourceX, sourceY, w * 0.9);
-  glow.addColorStop(0, `rgba(233,211,173,${0.22 * intensity})`);
-  glow.addColorStop(0.48, `rgba(173,154,128,${0.08 * intensity})`);
+  glow.addColorStop(0, `rgba(255,250,230,${0.42 * intensity})`);
+  glow.addColorStop(0.38, `rgba(232,228,210,${0.18 * intensity})`);
+  glow.addColorStop(0.7, `rgba(184,196,188,${0.08 * intensity})`);
   glow.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, w, h);
 
-  ctx.fillStyle = `rgba(238,222,190,${0.35 * intensity})`;
+  ctx.fillStyle = `rgba(255,252,232,${0.5 * intensity})`;
   ctx.beginPath();
   ctx.arc(sourceX, sourceY, 7 + Math.sin(now / 1100) * 0.7, 0, Math.PI * 2);
   ctx.fill();
 }
 
 function drawFurniture(w, h, floorY) {
-  drawFurnitureItem("chair", w, floorY, 34, 56);
-  drawFurnitureItem("table", w, floorY, 82, 36);
-  drawFurnitureItem("lamp", w, floorY, 22, 92);
-  drawFurnitureItem("bookshelf", w, floorY, 62, 118);
-  drawFurnitureItem("curtain", w, floorY, 42, 154);
-  drawFurnitureItem("mirrorFragment", w, floorY, 30, 52);
+  for (const key of Object.keys(furnitureCatalog)) {
+    drawFurnitureItem(key, w, h, floorY);
+  }
 }
 
-function drawFurnitureItem(key, w, floorY, itemW, itemH) {
+function drawFurnitureItem(key, w, h, floorY) {
   const item = state.furniture[key];
   if (!item.present) return;
+  const spec = furnitureCatalog[key];
   const x = furnitureX(item.position, w, key);
-  const y = floorY - itemH + 8;
+  const y = furnitureY(key, h, floorY);
   ctx.save();
-  ctx.strokeStyle = "rgba(238,231,220,0.42)";
-  ctx.lineWidth = 1.2;
-  ctx.fillStyle = "rgba(24,22,20,0.18)";
-  if (key === "lamp") {
-    ctx.beginPath();
-    ctx.moveTo(x, y + itemH);
-    ctx.lineTo(x + itemW / 2, y);
-    ctx.lineTo(x + itemW, y + itemH);
-    ctx.stroke();
-  } else if (key === "mirrorFragment") {
-    ctx.rotate(-0.06);
-    ctx.strokeRect(x, y + 18, itemW, itemH);
-  } else {
-    ctx.fillRect(x, y, itemW, itemH);
-    ctx.strokeRect(x, y, itemW, itemH);
-  }
+  ctx.imageSmoothingEnabled = false;
+  drawFurnitureFloorShadow(x, floorY, spec.width, spec.pull);
+  if (key === "chair") drawPixelChair(x, y);
+  if (key === "table") drawPixelTable(x, y);
+  if (key === "lamp") drawPixelLamp(x, y);
+  if (key === "bookshelf") drawPixelBookshelf(x, y);
+  if (key === "curtain") drawPixelCurtain(x, y);
+  if (key === "mirrorFragment") drawPixelMirror(x, y);
+  if (key === "cabinet") drawPixelCabinet(x, y);
+  if (key === "floorBox") drawPixelBox(x, y);
+  if (key === "wallClock") drawPixelClock(x, y);
+  if (key === "narrowBed") drawPixelBed(x, y);
+  if (key === "radio") drawPixelRadio(x, y);
+  if (key === "pictureFrame") drawPixelPicture(x, y);
   ctx.restore();
+}
+
+function furnitureY(key, h, floorY) {
+  const spec = furnitureCatalog[key];
+  if (["wallClock", "pictureFrame", "mirrorFragment"].includes(key)) {
+    return floorY - spec.height - h * 0.18;
+  }
+  if (key === "curtain") return floorY - spec.height + 8;
+  return floorY - spec.height + 8;
 }
 
 function furnitureX(position, w, key) {
@@ -486,40 +578,144 @@ function furnitureX(position, w, key) {
     againstWall: w * 0.76,
     removed: -999
   };
-  const nudges = {
-    chair: 0,
-    table: -38,
-    lamp: 52,
-    bookshelf: -70,
-    curtain: 90,
-    mirrorFragment: 22
-  };
-  return offsets[position] + (nudges[key] || 0);
+  return offsets[position] + (furnitureCatalog[key]?.nudge || 0);
+}
+
+function drawFurnitureFloorShadow(x, floorY, width, pull) {
+  ctx.fillStyle = `rgba(0,0,0,${0.08 + pull * 0.04})`;
+  ctx.beginPath();
+  ctx.ellipse(x + width * 0.5, floorY + 12, width * 0.72, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function px(x, y, w, h, fill = "rgba(210,203,193,0.34)") {
+  const u = 4;
+  ctx.fillStyle = fill;
+  ctx.fillRect(Math.round(x / u) * u, Math.round(y / u) * u, Math.round(w / u) * u, Math.round(h / u) * u);
+}
+
+function pixelOutline(x, y, w, h) {
+  px(x, y, w, 4, "rgba(238,231,220,0.5)");
+  px(x, y + h - 4, w, 4, "rgba(238,231,220,0.24)");
+  px(x, y, 4, h, "rgba(238,231,220,0.34)");
+  px(x + w - 4, y, 4, h, "rgba(238,231,220,0.26)");
+}
+
+function drawPixelChair(x, y) {
+  pixelOutline(x + 8, y + 10, 22, 28);
+  px(x + 2, y + 34, 34, 8);
+  px(x + 6, y + 42, 6, 18, "rgba(238,231,220,0.28)");
+  px(x + 28, y + 42, 6, 18, "rgba(238,231,220,0.22)");
+}
+
+function drawPixelTable(x, y) {
+  px(x, y + 8, 86, 12, "rgba(238,231,220,0.32)");
+  px(x + 8, y + 20, 8, 24, "rgba(238,231,220,0.24)");
+  px(x + 66, y + 20, 8, 24, "rgba(238,231,220,0.2)");
+  px(x + 26, y + 2, 34, 6, "rgba(238,231,220,0.18)");
+}
+
+function drawPixelLamp(x, y) {
+  px(x + 12, y + 24, 4, 68, "rgba(238,231,220,0.34)");
+  px(x + 2, y + 88, 24, 6, "rgba(238,231,220,0.3)");
+  px(x + 4, y + 2, 20, 20, "rgba(238,231,220,0.22)");
+  px(x + 8, y - 2, 12, 4, "rgba(238,231,220,0.42)");
+}
+
+function drawPixelBookshelf(x, y) {
+  pixelOutline(x, y, 68, 128);
+  for (let row = 22; row < 110; row += 24) {
+    px(x + 4, y + row, 60, 4, "rgba(238,231,220,0.22)");
+    for (let col = 8; col < 56; col += 12) {
+      px(x + col, y + row - 14, 6, 14, "rgba(180,171,160,0.28)");
+    }
+  }
+}
+
+function drawPixelCurtain(x, y) {
+  px(x + 4, y, 4, 162, "rgba(238,231,220,0.25)");
+  px(x + 16, y + 4, 8, 156, "rgba(160,151,143,0.22)");
+  px(x + 30, y + 2, 8, 158, "rgba(214,203,190,0.2)");
+  px(x, y, 46, 4, "rgba(238,231,220,0.34)");
+}
+
+function drawPixelMirror(x, y) {
+  pixelOutline(x, y, 32, 56);
+  px(x + 8, y + 8, 16, 40, "rgba(142,160,166,0.16)");
+  px(x + 18, y + 14, 4, 22, "rgba(238,231,220,0.22)");
+}
+
+function drawPixelCabinet(x, y) {
+  pixelOutline(x, y, 58, 86);
+  px(x + 6, y + 18, 46, 4, "rgba(238,231,220,0.22)");
+  px(x + 6, y + 44, 46, 4, "rgba(238,231,220,0.18)");
+  px(x + 26, y + 10, 6, 66, "rgba(238,231,220,0.12)");
+}
+
+function drawPixelBox(x, y) {
+  pixelOutline(x, y, 54, 34);
+  px(x + 8, y + 8, 38, 4, "rgba(238,231,220,0.16)");
+  px(x + 24, y, 6, 34, "rgba(238,231,220,0.12)");
+}
+
+function drawPixelClock(x, y) {
+  pixelOutline(x + 5, y + 5, 24, 24);
+  px(x + 17, y + 12, 4, 12, "rgba(238,231,220,0.25)");
+  px(x + 17, y + 20, 10, 4, "rgba(238,231,220,0.2)");
+}
+
+function drawPixelBed(x, y) {
+  px(x, y + 14, 118, 28, "rgba(190,181,170,0.21)");
+  px(x, y, 18, 42, "rgba(238,231,220,0.28)");
+  px(x + 22, y + 18, 34, 12, "rgba(238,231,220,0.18)");
+  px(x + 8, y + 42, 8, 8, "rgba(238,231,220,0.2)");
+  px(x + 102, y + 42, 8, 8, "rgba(238,231,220,0.16)");
+}
+
+function drawPixelRadio(x, y) {
+  pixelOutline(x, y, 42, 28);
+  px(x + 6, y + 8, 12, 12, "rgba(238,231,220,0.18)");
+  px(x + 24, y + 8, 10, 4, "rgba(238,231,220,0.28)");
+  px(x + 24, y + 16, 8, 4, "rgba(238,231,220,0.18)");
+  px(x + 12, y - 8, 18, 4, "rgba(238,231,220,0.22)");
+}
+
+function drawPixelPicture(x, y) {
+  pixelOutline(x, y, 46, 38);
+  px(x + 8, y + 8, 30, 20, "rgba(126,140,132,0.14)");
+  px(x + 14, y + 14, 10, 8, "rgba(238,231,220,0.14)");
 }
 
 function drawShadow(w, h, floorY, now) {
   const angle = state.room.lightAngle;
-  const distortion = state.shadow.distortion / 100;
-  const unease = state.shadow.unease / 100;
-  const size = 34 + state.shadow.size * 1.4;
-  const stretch = 1.2 + Math.abs(angle - 50) / 22;
-  const breathe = 1 + Math.sin(now / 1600) * 0.02;
-  const baseX = w * 0.22 + (50 - angle) * 2.6;
+  let baseX = w * 0.22 + (50 - angle) * 2.6;
   const baseY = floorY + 22;
-  const points = 24;
+  const form = currentEvolutionForm();
+  const influence = shadowFurnitureInfluence(w, h, floorY, baseX);
+  baseX += influence.pullX;
+  const distortion = Math.min(1.4, state.shadow.distortion / 100 + influence.distortion + form.grain * 0.35);
+  const unease = state.shadow.unease / 100;
+  const size = 34 + state.shadow.size * 1.4 + evolutionIndex() * 2.2;
+  const stretch = 1.2 + Math.abs(angle - 50) / 22 + influence.stretch + form.split * 0.28;
+  const breathe = 1 + Math.sin(now / 1600) * 0.02;
+  const points = 28;
 
   ctx.save();
   ctx.translate(baseX, baseY);
-  ctx.scale(stretch * breathe, 0.58 + state.shadow.size / 220);
+  ctx.scale(stretch * breathe, 0.58 + state.shadow.size / 220 + form.lift * 0.18);
   ctx.rotate((50 - angle) * 0.004);
   ctx.beginPath();
   for (let i = 0; i <= points; i += 1) {
     const t = (i / points) * Math.PI * 2;
-    const wobble = Math.sin(t * 3 + now / 900) * distortion * 16 + Math.sin(t * 7 + now / 1700) * unease * 9;
+    const splitPull = Math.max(0, Math.sin(t)) * form.split * size * 0.18;
+    const wobble =
+      Math.sin(t * 3 + now / 900) * distortion * 16 +
+      Math.sin(t * 7 + now / 1700) * unease * 9 +
+      splitPull;
     const rx = size + wobble;
-    const ry = size * 0.42 + Math.cos(t * 2 + now / 1400) * distortion * 7;
+    const ry = size * (0.42 + form.lift * 0.08) + Math.cos(t * 2 + now / 1400) * distortion * 7;
     const x = Math.cos(t) * rx;
-    const y = Math.sin(t) * ry;
+    const y = Math.sin(t) * ry - Math.max(0, -Math.sin(t)) * form.lift * size * 0.34;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
@@ -527,12 +723,114 @@ function drawShadow(w, h, floorY, now) {
   ctx.fillStyle = `rgba(0,0,0,${0.7 + unease * 0.18})`;
   ctx.fill();
 
+  drawFurnitureTethers(influence.anchors, baseX, baseY, size, now);
+  drawEvolutionMarks(form, baseX, baseY, size, floorY, now);
+
   if (stageRank(state.shadow.stage) >= stageRank("familiar")) {
     ctx.strokeStyle = "rgba(0,0,0,0.58)";
     ctx.lineWidth = 5;
     ctx.beginPath();
     ctx.moveTo(size * 0.2, -size * 0.1);
     ctx.quadraticCurveTo(size * 0.7, -size * 0.7, size * 1.05, -size * 1.2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawEvolutionMarks(form, baseX, baseY, size, floorY, now) {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (form.wall > 0.02) {
+    const height = size * (0.7 + form.wall * 1.6);
+    const width = size * (0.45 + form.wall * 0.42);
+    const x = baseX - width * 0.25 + Math.sin(now / 1500) * form.wall * 4;
+    const y = floorY - height * 0.78;
+    const gradient = ctx.createLinearGradient(x, y, x, floorY + 20);
+    gradient.addColorStop(0, `rgba(0,0,0,${0.02 + form.wall * 0.18})`);
+    gradient.addColorStop(1, `rgba(0,0,0,${0.08 + form.wall * 0.22})`);
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(x, floorY + 12);
+    ctx.quadraticCurveTo(x + width * 0.2, y + height * 0.45, x + width * 0.48, y);
+    ctx.quadraticCurveTo(x + width * 0.82, y + height * 0.5, x + width, floorY + 16);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  for (let i = 0; i < form.tendrils; i += 1) {
+    const side = i % 2 === 0 ? 1 : -1;
+    const startX = baseX + side * size * (0.28 + i * 0.08);
+    const endX = startX + side * size * (0.38 + form.split * 0.34);
+    const endY = baseY - size * (0.12 + form.lift * 0.5) + Math.sin(now / 700 + i) * 5;
+    ctx.strokeStyle = `rgba(0,0,0,${0.16 + form.grain * 0.26})`;
+    ctx.lineWidth = Math.max(1.5, 2 + form.grain * 5 - i * 0.35);
+    ctx.beginPath();
+    ctx.moveTo(startX, baseY - 4);
+    ctx.quadraticCurveTo((startX + endX) * 0.5, baseY - size * 0.35, endX, endY);
+    ctx.stroke();
+  }
+
+  if (form.grain > 0.2) {
+    ctx.fillStyle = `rgba(0,0,0,${0.08 + form.grain * 0.1})`;
+    for (let i = 0; i < Math.floor(form.grain * 24); i += 1) {
+      const x = baseX + Math.sin(i * 15.7 + now / 800) * size * (0.4 + form.split);
+      const y = baseY + Math.cos(i * 9.2 + now / 1100) * size * 0.28;
+      ctx.fillRect(x, y, 2, 2);
+    }
+  }
+  ctx.restore();
+}
+
+function shadowFurnitureInfluence(w, h, floorY, baseX) {
+  const anchors = [];
+  let pullX = 0;
+  let distortion = 0;
+  let stretch = 0;
+
+  for (const key of Object.keys(furnitureCatalog)) {
+    const item = state.furniture[key];
+    if (!item?.present || item.position === "removed") continue;
+    const spec = furnitureCatalog[key];
+    const anchor = furnitureAnchor(key, w, h, floorY);
+    const distance = Math.abs(anchor.x - baseX);
+    const proximity = Math.max(0, 1 - distance / (w * 0.5));
+    const positionWeight = item.position === "nearCorner" ? 1.28 : item.position === "center" ? 0.82 : 0.54;
+    const weight = proximity * spec.pull * positionWeight;
+    pullX += (anchor.x - baseX) * weight * 0.12;
+    distortion += weight * 0.11;
+    stretch += weight * 0.18;
+    if (weight > 0.12) anchors.push({ ...anchor, weight });
+  }
+
+  return { pullX, distortion, stretch, anchors };
+}
+
+function furnitureAnchor(key, w, h, floorY) {
+  const spec = furnitureCatalog[key];
+  const x = furnitureX(state.furniture[key].position, w, key);
+  const y = furnitureY(key, h, floorY);
+  return {
+    x: x + spec.width * 0.5,
+    y: Math.min(floorY + 12, y + spec.height),
+    key
+  };
+}
+
+function drawFurnitureTethers(anchors, baseX, baseY, size, now) {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (const anchor of anchors) {
+    const drift = Math.sin(now / 900 + anchor.x * 0.03) * 10 * anchor.weight;
+    ctx.strokeStyle = `rgba(0,0,0,${0.18 + anchor.weight * 0.2})`;
+    ctx.lineWidth = Math.max(2, 8 * anchor.weight);
+    ctx.beginPath();
+    ctx.moveTo(baseX + size * 0.25, baseY - 2);
+    ctx.quadraticCurveTo(
+      (baseX + anchor.x) * 0.5 + drift,
+      baseY - 18 * anchor.weight,
+      anchor.x,
+      anchor.y
+    );
     ctx.stroke();
   }
   ctx.restore();
