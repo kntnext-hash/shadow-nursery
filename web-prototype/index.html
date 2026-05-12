@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Shadow Nursery Prototype</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="shell" data-stage="dormant">
+      <canvas id="roomCanvas" aria-label="room"></canvas>
+
+      <div class="topbar" aria-label="top controls">
+        <button id="roomButton" class="ghost-button" type="button">main room</button>
+        <div id="dayText" class="quiet-label">day 0</div>
+        <button id="resetButton" class="icon-button" type="button" aria-label="reset">reset</button>
+      </div>
+
+      <section class="status-strip" aria-label="status">
+        <span id="stageText">dormant</span>
+        <span id="sizeText">barely there</span>
+        <span id="moodText">quiet</span>
+      </section>
+
+      <section class="control-band" aria-label="room controls">
+        <label class="range-control">
+          <span>light</span>
+          <input id="angleSlider" type="range" min="0" max="100" value="50">
+        </label>
+        <label class="range-control">
+          <span>intensity</span>
+          <input id="intensitySlider" type="range" min="0" max="100" value="45">
+        </label>
+        <div class="tool-row">
+          <button id="observeButton" class="tool-button" type="button">observe</button>
+          <button id="laterButton" class="tool-button" type="button">later</button>
+          <button id="furnitureButton" class="tool-button" type="button">furniture</button>
+          <button id="memoryButton" class="tool-button" type="button">memory</button>
+        </div>
+      </section>
+
+      <aside id="furniturePanel" class="panel" aria-hidden="true">
+        <div class="panel-head">
+          <h2>furniture</h2>
+          <button class="icon-button" data-close="furniturePanel" type="button" aria-label="close furniture">close</button>
+        </div>
+        <div id="furnitureList" class="stack"></div>
+      </aside>
+
+      <aside id="memoryPanel" class="panel memory-panel" aria-hidden="true">
+        <div class="panel-head">
+          <h2>memory</h2>
+          <button class="icon-button" data-close="memoryPanel" type="button" aria-label="close memory">close</button>
+        </div>
+        <div id="memoryList" class="memory-list"></div>
+      </aside>
+
+      <div id="promptOverlay" class="prompt-overlay" aria-hidden="true">
+        <div class="prompt-box">
+          <p id="promptText"></p>
+          <div id="promptChoices" class="choice-row"></div>
+        </div>
+      </div>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

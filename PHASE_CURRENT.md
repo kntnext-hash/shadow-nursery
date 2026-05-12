@@ -2,9 +2,15 @@
 
 Project: Shadow Nursery
 
-Status: Phase 1 implementation complete; Xcode build verification pending
+Status: Pivoted to Web prototype for local visual iteration
 
-Current phase: Phase 1 - Project Foundation
+Current phase: Web-1 - Playable Feel Prototype
+
+## Active Direction
+
+The native iOS Phase 1 project remains in the repository, but active work now uses a browser-first prototype. This lets Codex and the user inspect and tune the game feel on Windows before migrating the validated direction to Godot and then mobile builds.
+
+See `WEB_PROTOTYPE.md`.
 
 ## Phase 1 Scope
 
@@ -51,6 +57,7 @@ Do not implement yet:
 - 2026-05-13: Created project coordination docs.
 - 2026-05-13: Added minimal Xcode iOS project, SwiftUI app entry, SpriteKit room scene, core models, CoreData-backed persistence service, default game state, and game view model.
 - 2026-05-13: Build could not be run in this Windows environment because `xcodebuild` and `swift` are not installed.
+- 2026-05-13: Pivoted to Web-1 prototype so room, light, shadow, furniture, memory, and prompt feel can be tested locally in Codex.
 
 ## Phase 1 Files Created
 
@@ -88,5 +95,5 @@ xcrun simctl list devices
 ## Next Codex Prompt
 
 ```text
-Read AGENTS.md, PHASE_CURRENT.md, SCHEMA.md, and CONTENT.md first. Verify Phase 1 in Xcode. Fix any build issues. Only after Phase 1 builds and launches, begin Phase 2.
+Read AGENTS.md, PHASE_CURRENT.md, SCHEMA.md, CONTENT.md, and WEB_PROTOTYPE.md first. Continue Web-1 until the playable feel is ready for user judgment. Do not start Godot until the prototype direction is approved.
 ```
