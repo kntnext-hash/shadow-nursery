@@ -101,11 +101,14 @@ const observeButton = document.getElementById("observeButton");
 const laterButton = document.getElementById("laterButton");
 const furnitureButton = document.getElementById("furnitureButton");
 const memoryButton = document.getElementById("memoryButton");
+const formsButton = document.getElementById("formsButton");
 const resetButton = document.getElementById("resetButton");
 const furniturePanel = document.getElementById("furniturePanel");
 const memoryPanel = document.getElementById("memoryPanel");
+const formsPanel = document.getElementById("formsPanel");
 const furnitureList = document.getElementById("furnitureList");
 const memoryList = document.getElementById("memoryList");
+const formsList = document.getElementById("formsList");
 const promptOverlay = document.getElementById("promptOverlay");
 const promptText = document.getElementById("promptText");
 const promptChoices = document.getElementById("promptChoices");
@@ -193,6 +196,8 @@ const roomCatalog = {
 let state = loadState();
 let activePrompt = null;
 let lastFrame = performance.now();
+let lastDraw = 0;
+let lastHudUpdate = 0;
 
 function defaultState() {
   const now = Date.now();
@@ -511,6 +516,64 @@ function renderPanels() {
     }
     memoryList.appendChild(item);
   }
+
+  renderFormsPanel();
+}
+
+function renderFormsPanel() {
+  formsList.innerHTML = "";
+  const current = evolutionIndex();
+  evolutionForms.forEach((form, index) => {
+    const card = document.createElement("div");
+    card.className = `form-card ${index === current ? "current" : ""}`;
+
+    const preview = document.createElement("canvas");
+    preview.width = 220;
+    preview.height = 110;
+    drawEvolutionPreview(preview, form, index);
+
+    const title = document.createElement("strong");
+    title.textContent = form.name;
+
+    const meta = document.createElement("span");
+    meta.textContent = `${String(index + 1).padStart(2, "0")} / 20`;
+
+    card.append(preview, title, meta);
+    formsList.appendChild(card);
+  });
+}
+
+function drawEvolutionPreview(preview, form, index) {
+  const previewCtx = preview.getContext("2d");
+  const w = preview.width;
+  const h = preview.height;
+  previewCtx.clearRect(0, 0, w, h);
+
+  const bg = previewCtx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, "#c7ccc2");
+  bg.addColorStop(1, "#777970");
+  previewCtx.fillStyle = bg;
+  previewCtx.fillRect(0, 0, w, h);
+
+  previewCtx.strokeStyle = "rgba(255,250,236,0.12)";
+  previewCtx.beginPath();
+  previewCtx.moveTo(0, h * 0.68);
+  previewCtx.lineTo(w, h * 0.68);
+  previewCtx.stroke();
+
+  drawOrganicShadow(previewCtx, {
+    x: w * 0.42,
+    y: h * 0.72,
+    size: 22 + index * 2.8,
+    stretch: 1.15 + form.split * 0.7,
+    verticalScale: 0.62 + form.lift * 0.28,
+    distortion: form.grain * 1.2,
+    unease: 0.2 + form.wall * 0.5,
+    form,
+    now: 900 + index * 120,
+    floorY: h * 0.68,
+    volume: true
+  });
 }
 
 function labelForFurniture(key) {
@@ -539,7 +602,7 @@ function labelByValue(value, labels) {
 
 function togglePanel(panel) {
   const open = !panel.classList.contains("open");
-  for (const p of [furniturePanel, memoryPanel]) {
+  for (const p of [furniturePanel, memoryPanel, formsPanel]) {
     p.classList.remove("open");
     p.setAttribute("aria-hidden", "true");
   }
@@ -557,6 +620,11 @@ function resizeCanvas() {
 }
 
 function draw(now) {
+  if (now - lastDraw < 40) {
+    requestAnimationFrame(draw);
+    return;
+  }
+  lastDraw = now;
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
   state.shadow.totalMinutesObserved += dt / 60;
@@ -571,7 +639,10 @@ function draw(now) {
   drawLight(w, h, floorY, now);
   drawFurniture(w, h, floorY);
   drawShadow(w, h, floorY, now);
-  updateHud();
+  if (now - lastHudUpdate > 250) {
+    updateHud();
+    lastHudUpdate = now;
+  }
 
   requestAnimationFrame(draw);
 }
@@ -841,43 +912,159 @@ function drawShadow(w, h, floorY, now) {
   const size = 34 + state.shadow.size * 1.4 + evolutionIndex() * 2.2;
   const stretch = 1.2 + Math.abs(angle - 50) / 22 + influence.stretch + form.split * 0.28 + roomBias.stretch;
   const breathe = 1 + Math.sin(now / 1600) * 0.02;
-  const points = 28;
-
-  ctx.save();
-  ctx.translate(baseX, baseY);
-  ctx.scale(stretch * breathe, 0.58 + state.shadow.size / 220 + form.lift * 0.18);
-  ctx.rotate((50 - angle) * 0.004);
-  ctx.beginPath();
-  for (let i = 0; i <= points; i += 1) {
-    const t = (i / points) * Math.PI * 2;
-    const splitPull = Math.max(0, Math.sin(t)) * form.split * size * 0.18;
-    const wobble =
-      Math.sin(t * 3 + now / 900) * distortion * 16 +
-      Math.sin(t * 7 + now / 1700) * unease * 9 +
-      splitPull;
-    const rx = size + wobble;
-    const ry = size * (0.42 + form.lift * 0.08) + Math.cos(t * 2 + now / 1400) * distortion * 7;
-    const x = Math.cos(t) * rx;
-    const y = Math.sin(t) * ry - Math.max(0, -Math.sin(t)) * form.lift * size * 0.34;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-  ctx.fillStyle = `rgba(0,0,0,${0.7 + unease * 0.18})`;
-  ctx.fill();
+  drawOrganicShadow(ctx, {
+    x: baseX,
+    y: baseY,
+    size,
+    stretch: stretch * breathe,
+    verticalScale: 0.58 + state.shadow.size / 220 + form.lift * 0.18,
+    rotation: (50 - angle) * 0.004,
+    distortion,
+    unease,
+    form,
+    now,
+    floorY,
+    volume: true
+  });
 
   drawFurnitureTethers(influence.anchors, baseX, baseY, size, now);
   drawEvolutionMarks(form, baseX, baseY, size, floorY, now, roomBias.wall);
+}
 
-  if (stageRank(state.shadow.stage) >= stageRank("familiar")) {
-    ctx.strokeStyle = "rgba(0,0,0,0.58)";
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(size * 0.2, -size * 0.1);
-    ctx.quadraticCurveTo(size * 0.7, -size * 0.7, size * 1.05, -size * 1.2);
-    ctx.stroke();
+function drawOrganicShadow(targetCtx, options) {
+  const {
+    x,
+    y,
+    size,
+    stretch,
+    verticalScale,
+    rotation = 0,
+    distortion,
+    unease,
+    form,
+    now,
+    floorY,
+    volume
+  } = options;
+
+  drawShadowLayer(targetCtx, {
+    x,
+    y: y + 4,
+    size: size * 1.08,
+    stretch: stretch * 1.06,
+    verticalScale: verticalScale * 0.92,
+    rotation,
+    distortion,
+    unease,
+    form,
+    now,
+    alpha: 0.72 + unease * 0.16,
+    offsetLift: 0,
+    floorY
+  });
+
+  if (!volume) return;
+
+  drawShadowLayer(targetCtx, {
+    x: x - size * 0.08,
+    y: y - size * form.lift * 0.18,
+    size: size * (0.72 + form.lift * 0.22),
+    stretch: stretch * (0.64 + form.split * 0.22),
+    verticalScale: verticalScale * (0.72 + form.lift * 0.5),
+    rotation: rotation - 0.05,
+    distortion: distortion * 1.1,
+    unease,
+    form,
+    now: now + 340,
+    alpha: 0.28 + form.lift * 0.22,
+    offsetLift: form.lift * size * 0.75,
+    floorY
+  });
+
+  if (form.lift > 0.3) {
+    drawShadowLayer(targetCtx, {
+      x: x - size * 0.18,
+      y: y - size * (0.26 + form.lift * 0.45),
+      size: size * (0.36 + form.wall * 0.22),
+      stretch: Math.max(0.48, stretch * 0.28),
+      verticalScale: verticalScale * (1.4 + form.wall * 1.2),
+      rotation: rotation + 0.08,
+      distortion: distortion * 1.35,
+      unease,
+      form,
+      now: now + 800,
+      alpha: 0.18 + form.wall * 0.26,
+      offsetLift: form.lift * size * 1.2,
+      floorY
+    });
   }
-  ctx.restore();
+
+  const shineAlpha = Math.max(0, 0.08 - unease * 0.04);
+  if (shineAlpha > 0) {
+    targetCtx.save();
+    targetCtx.globalCompositeOperation = "screen";
+    drawShadowLayer(targetCtx, {
+      x: x - size * 0.16,
+      y: y - size * 0.12,
+      size: size * 0.28,
+      stretch: stretch * 0.45,
+      verticalScale: verticalScale * 0.55,
+      rotation: rotation - 0.1,
+      distortion: distortion * 0.7,
+      unease: 0,
+      form,
+      now,
+      alpha: shineAlpha,
+      offsetLift: 0,
+      floorY
+    });
+    targetCtx.restore();
+  }
+}
+
+function drawShadowLayer(targetCtx, options) {
+  const points = 22;
+  const {
+    x,
+    y,
+    size,
+    stretch,
+    verticalScale,
+    rotation,
+    distortion,
+    unease,
+    form,
+    now,
+    alpha,
+    offsetLift
+  } = options;
+
+  targetCtx.save();
+  targetCtx.translate(x, y);
+  targetCtx.scale(stretch, verticalScale);
+  targetCtx.rotate(rotation);
+  targetCtx.beginPath();
+  for (let i = 0; i <= points; i += 1) {
+    const t = (i / points) * Math.PI * 2;
+    const splitPull = Math.max(0, Math.sin(t)) * form.split * size * 0.18;
+    const upperLift = Math.max(0, -Math.sin(t)) * offsetLift;
+    const shoulder = Math.max(0, -Math.cos(t + 0.7)) * form.wall * size * 0.2;
+    const wobble =
+      Math.sin(t * 3 + now / 900) * distortion * 16 +
+      Math.sin(t * 7 + now / 1700) * unease * 9 +
+      splitPull +
+      shoulder;
+    const rx = size + wobble;
+    const ry = size * (0.42 + form.lift * 0.08) + Math.cos(t * 2 + now / 1400) * distortion * 7;
+    const px = Math.cos(t) * rx;
+    const py = Math.sin(t) * ry - upperLift;
+    if (i === 0) targetCtx.moveTo(px, py);
+    else targetCtx.lineTo(px, py);
+  }
+  targetCtx.closePath();
+  targetCtx.fillStyle = `rgba(0,0,0,${alpha})`;
+  targetCtx.fill();
+  targetCtx.restore();
 }
 
 function drawEvolutionMarks(form, baseX, baseY, size, floorY, now, roomWallBias = 0) {
@@ -916,7 +1103,7 @@ function drawEvolutionMarks(form, baseX, baseY, size, floorY, now, roomWallBias 
 
   if (form.grain > 0.2) {
     ctx.fillStyle = `rgba(0,0,0,${0.08 + form.grain * 0.1})`;
-    for (let i = 0; i < Math.floor(form.grain * 24); i += 1) {
+    for (let i = 0; i < Math.floor(form.grain * 12); i += 1) {
       const x = baseX + Math.sin(i * 15.7 + now / 800) * size * (0.4 + form.split);
       const y = baseY + Math.cos(i * 9.2 + now / 1100) * size * 0.28;
       ctx.fillRect(x, y, 2, 2);
@@ -1027,6 +1214,11 @@ furnitureButton.addEventListener("click", () => togglePanel(furniturePanel));
 memoryButton.addEventListener("click", () => {
   renderPanels();
   togglePanel(memoryPanel);
+});
+
+formsButton.addEventListener("click", () => {
+  renderPanels();
+  togglePanel(formsPanel);
 });
 
 resetButton.addEventListener("click", () => {

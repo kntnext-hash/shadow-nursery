@@ -41,6 +41,7 @@ Design priorities:
 - Make the shadow feel like a phenomenon, not a character.
 - Make furniture placement visibly change the shadow.
 - Let the shadow evolve through roughly 20 visible form steps: pool, stain, lifted edge, wall mark, tendril-like smears, and finally an unstable absence. Do not label them as levels in the UI.
+- Provide a `forms` panel so the 20 shadow forms can be reviewed as a visual direction sheet during prototyping.
 - Preserve ambiguity.
 - Avoid reward language.
 - Avoid turning the loop into chores.
