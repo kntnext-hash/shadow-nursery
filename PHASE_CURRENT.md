@@ -2,7 +2,7 @@
 
 Project: Shadow Nursery
 
-Status: Not started
+Status: Phase 1 implementation complete; Xcode build verification pending
 
 Current phase: Phase 1 - Project Foundation
 
@@ -49,9 +49,44 @@ Do not implement yet:
 ## Progress Log
 
 - 2026-05-13: Created project coordination docs.
+- 2026-05-13: Added minimal Xcode iOS project, SwiftUI app entry, SpriteKit room scene, core models, CoreData-backed persistence service, default game state, and game view model.
+- 2026-05-13: Build could not be run in this Windows environment because `xcodebuild` and `swift` are not installed.
+
+## Phase 1 Files Created
+
+- `ShadowNursery.xcodeproj/project.pbxproj`
+- `ShadowNursery/App/ShadowNurseryApp.swift`
+- `ShadowNursery/App/AppDelegate.swift`
+- `ShadowNursery/Models/ShadowStage.swift`
+- `ShadowNursery/Models/ShadowState.swift`
+- `ShadowNursery/Models/FurnitureState.swift`
+- `ShadowNursery/Models/MemoryFragment.swift`
+- `ShadowNursery/Models/ShadowPrompt.swift`
+- `ShadowNursery/Models/StateEffect.swift`
+- `ShadowNursery/Models/RoomState.swift`
+- `ShadowNursery/Models/GameState.swift`
+- `ShadowNursery/Systems/PersistenceService.swift`
+- `ShadowNursery/ViewModels/GameViewModel.swift`
+- `ShadowNursery/Views/RoomView.swift`
+- `ShadowNursery/SpriteKit/RoomScene.swift`
+- `ShadowNursery/Content/DefaultGameState.swift`
+
+## Build Check
+
+Run this on macOS with Xcode installed:
+
+```text
+xcodebuild -project ShadowNursery.xcodeproj -scheme ShadowNursery -destination 'platform=iOS Simulator,name=iPhone 15' build
+```
+
+If the simulator name differs, list available simulators with:
+
+```text
+xcrun simctl list devices
+```
 
 ## Next Codex Prompt
 
 ```text
-Read AGENTS.md, PHASE_CURRENT.md, SCHEMA.md, and CONTENT.md first. Implement Phase 1 only. Do not implement features from later phases. When finished, run the available build checks and update PHASE_CURRENT.md.
+Read AGENTS.md, PHASE_CURRENT.md, SCHEMA.md, and CONTENT.md first. Verify Phase 1 in Xcode. Fix any build issues. Only after Phase 1 builds and launches, begin Phase 2.
 ```
